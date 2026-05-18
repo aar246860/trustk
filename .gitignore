@@ -1,0 +1,37 @@
+# Python cache and build outputs
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Local environments
+.venv/
+venv/
+env/
+
+# Large field data, processed study outputs, and generated analysis outputs
+/data/
+/field data/
+/outputs/
+
+# Manuscript workspace and release bundles
+/manuscript/
+/overleaf_package_*/
+/software_package_trustk/
+*.zip
+texput.log
+
+# Local research planning notes that are not part of the public package
+AGENTS.md
+PROJECT_STATUS.md
+data_manifest.md
+TRUST_K_*Constitution*.md
+/docs/superpowers/
+/notebooks/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
