@@ -1,4 +1,4 @@
 include README.md
 include LICENSE
 include docs/software_usage.md
-include docs/pypi_release.md
+include docs/github_release.md

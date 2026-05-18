@@ -16,19 +16,24 @@ The primary field data are the USGS Lovelock, Nevada data release in:
 field data/OFR2019_1133_DataRelease.zip
 ```
 
-The data include slug tests, single-well pumping, multi-well pumping, pumping recovery, and existing USGS analyses.
+The raw data archive is not stored in this GitHub repository because it is large.
+Place the downloaded USGS archive at the path above before running field-data
+inventory or extraction commands. The data include slug tests, single-well
+pumping, multi-well pumping, pumping recovery, and existing USGS analyses.
 
 ## Basic Commands
 
-After the public release, readers can install TRUST-K from PyPI:
+TRUST-K is currently released as an open-source GitHub source package:
 
 ```bash
-pip install trustk
+python -m pip install "git+https://github.com/aar246860/trustk.git"
 ```
 
 For local development from the source repository:
 
 ```powershell
+git clone https://github.com/aar246860/trustk.git
+cd trustk
 python -m pip install -e .
 ```
 

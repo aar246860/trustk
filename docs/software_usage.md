@@ -6,22 +6,17 @@ estimates into method-dependent soft observations.
 
 ## Install for Local Use
 
-After the public release, install from PyPI:
+TRUST-K is currently distributed through the public GitHub repository:
 
 ```bash
-pip install trustk
+python -m pip install "git+https://github.com/aar246860/trustk.git"
 ```
 
 For local source development:
 
 ```powershell
-python -m pip install -e .
-```
-
-On systems that handle the project path cleanly, the package can also be
-installed in editable mode:
-
-```powershell
+git clone https://github.com/aar246860/trustk.git
+cd trustk
 python -m pip install -e .
 ```
 
