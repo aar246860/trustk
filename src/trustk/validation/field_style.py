@@ -12,6 +12,7 @@ import openpyxl
 import pandas as pd
 from scipy.optimize import least_squares
 
+from trustk.api import MANUSCRIPT_METHOD_PRIORS
 from trustk.data.extract_slug import SLUG_ANALYSIS_WORKBOOKS
 from trustk.validation.lovelock import PUMP_START, PUMP_STOP, cyclic_theis_drawdown
 
@@ -39,7 +40,7 @@ def build_field_style_validation(
     comparison = pd.read_csv(processed / "lovelock_bongo_model_comparison.csv", parse_dates=["datetime"])
     slug_curves = _load_slug_segments_or_fallback(zip_path, processed / "slug_curves.csv")
     pumping_well = pd.read_csv(processed / "lovelock_bongo_pumping_well.csv").iloc[0]
-    prior = pd.read_csv(processed / "formal_population_1728_engineering_prior.csv")
+    prior = _load_formal_joint_prior(processed)
 
     pumping_predictions, pumping_metrics = _build_pumping_leave_one_out(
         summary=summary,
@@ -64,6 +65,22 @@ def build_field_style_validation(
         slug_predictions=slug_predictions,
         metrics=metrics,
     )
+
+
+def _load_formal_joint_prior(processed: Path) -> pd.DataFrame:
+    prior_path = processed / "formal_joint_storage_transformation_prior.csv"
+    if prior_path.exists():
+        return pd.read_csv(prior_path)
+    rows = [
+        {
+            "method": prior.method,
+            "mean_log_residual": prior.mean_log_residual,
+            "sd_log_residual": prior.sd_log_residual,
+            "n_cases": prior.n_cases,
+        }
+        for prior in MANUSCRIPT_METHOD_PRIORS.values()
+    ]
+    return pd.DataFrame(rows)
 
 
 def _build_pumping_leave_one_out(
@@ -434,8 +451,8 @@ def _build_apparent_posterior(
     for row in summary.itertuples(index=False):
         observations = [
             (
-                np.log(float(row.k_slug_m_s)) - float(prior_by_method.loc["slug", "mean_log_residual"]),
-                float(prior_by_method.loc["slug", "sd_log_residual"]),
+                np.log(float(row.k_slug_m_s)) - float(prior_by_method.loc["slug_bouwer_rice", "mean_log_residual"]),
+                float(prior_by_method.loc["slug_bouwer_rice", "sd_log_residual"]),
             ),
             (
                 np.log(float(row.theis_transmissivity_m2_s) / aquifer_thickness_m)

@@ -54,18 +54,22 @@ class SoftConductivityObservation:
         return asdict(self)
 
 
+FORMAL_JOINT_PRIOR_SOURCE = "TRUST-K formal 4096-case joint K-Ss-b synthetic population"
+
 MANUSCRIPT_METHOD_PRIORS: dict[str, MethodTransformationPrior] = {
     "pumping": MethodTransformationPrior(
         method="pumping",
-        mean_log_residual=0.17,
-        sd_log_residual=0.30,
-        n_cases=1476,
+        mean_log_residual=0.26345401414389874,
+        sd_log_residual=0.39232099187009656,
+        n_cases=4025,
+        source=FORMAL_JOINT_PRIOR_SOURCE,
     ),
-    "slug": MethodTransformationPrior(
-        method="slug",
-        mean_log_residual=0.57,
-        sd_log_residual=0.49,
-        n_cases=1728,
+    "slug_bouwer_rice": MethodTransformationPrior(
+        method="slug_bouwer_rice",
+        mean_log_residual=0.798700815400023,
+        sd_log_residual=2.8010164229597403,
+        n_cases=4096,
+        source=FORMAL_JOINT_PRIOR_SOURCE,
     ),
 }
 
@@ -76,12 +80,13 @@ _METHOD_ALIASES = {
     "cooper_jacob": "pumping",
     "cooper-jacob": "pumping",
     "theis": "pumping",
-    "slug": "slug",
-    "slug_test": "slug",
-    "micro_water": "slug",
-    "microwater": "slug",
-    "bouwer_rice": "slug",
-    "bouwer-rice": "slug",
+    "slug": "slug_bouwer_rice",
+    "slug_test": "slug_bouwer_rice",
+    "slug_bouwer_rice": "slug_bouwer_rice",
+    "micro_water": "slug_bouwer_rice",
+    "microwater": "slug_bouwer_rice",
+    "bouwer_rice": "slug_bouwer_rice",
+    "bouwer-rice": "slug_bouwer_rice",
 }
 
 

@@ -10,6 +10,7 @@ from scipy.sparse.linalg import spsolve
 
 from trustk.mesh.polar_mesh import PolarMesh
 from trustk.physics.fv_solver import _assemble_conductance_matrix
+from trustk.physics.storage import storativity_array
 
 
 @dataclass(frozen=True)
@@ -25,18 +26,17 @@ class SlugSimulationResult:
 def _validate_slug_inputs(
     mesh: PolarMesh,
     transmissivity: np.ndarray,
-    storativity: float,
+    storativity: float | np.ndarray,
     well_storage: float,
     initial_well_head: float,
     times: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     trans = np.asarray(transmissivity, dtype=float)
     if trans.shape != mesh.shape:
         raise ValueError(f"transmissivity shape must be {mesh.shape}")
     if np.any(trans <= 0):
         raise ValueError("transmissivity values must be positive")
-    if storativity <= 0:
-        raise ValueError("storativity must be positive")
+    storage_values = storativity_array(storativity, mesh)
     if well_storage <= 0:
         raise ValueError("well_storage must be positive")
     if initial_well_head <= 0:
@@ -46,7 +46,7 @@ def _validate_slug_inputs(
         raise ValueError("times must be a one-dimensional non-empty array")
     if np.any(t <= 0) or np.any(np.diff(t) <= 0):
         raise ValueError("times must be positive and strictly increasing")
-    return trans, t
+    return trans, storage_values, t
 
 
 def _inner_well_conductance(mesh: PolarMesh, transmissivity: np.ndarray) -> np.ndarray:
@@ -58,7 +58,7 @@ def _inner_well_conductance(mesh: PolarMesh, transmissivity: np.ndarray) -> np.n
 def simulate_slug_recovery(
     mesh: PolarMesh,
     transmissivity: np.ndarray,
-    storativity: float,
+    storativity: float | np.ndarray,
     well_storage: float,
     initial_well_head: float,
     times: np.ndarray,
@@ -69,7 +69,7 @@ def simulate_slug_recovery(
     formation reference head. The outer radial boundary is fixed at zero.
     """
 
-    trans, t = _validate_slug_inputs(
+    trans, storage_values, t = _validate_slug_inputs(
         mesh,
         transmissivity,
         storativity,
@@ -78,7 +78,7 @@ def simulate_slug_recovery(
         times,
     )
     aquifer_matrix = _assemble_conductance_matrix(mesh, trans)
-    storage = storativity * mesh.area.ravel()
+    storage = storage_values.ravel() * mesh.area.ravel()
     well_g = _inner_well_conductance(mesh, trans)
     n_cells = mesh.n_r * mesh.n_theta
     well_idx = n_cells

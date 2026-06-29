@@ -153,6 +153,83 @@ def estimate_transmissivity_slug_semilog(
     )
 
 
+def estimate_hydraulic_conductivity_bouwer_rice(
+    *,
+    times_s: np.ndarray,
+    normalized_head: np.ndarray,
+    casing_radius_m: float,
+    well_radius_m: float,
+    screen_length_m: float,
+    aquifer_thickness_m: float,
+    effective_radius_m: float,
+    min_points: int = 8,
+) -> InterpretationFit:
+    if casing_radius_m <= 0.0:
+        raise ValueError("casing_radius_m must be positive")
+    if well_radius_m <= 0.0:
+        raise ValueError("well_radius_m must be positive")
+    if screen_length_m <= 0.0:
+        raise ValueError("screen_length_m must be positive")
+    if aquifer_thickness_m <= 0.0:
+        raise ValueError("aquifer_thickness_m must be positive")
+    if effective_radius_m <= well_radius_m:
+        raise ValueError("effective_radius_m must be greater than well_radius_m")
+
+    times = np.asarray(times_s, dtype=float)
+    head = np.asarray(normalized_head, dtype=float)
+    if times.shape != head.shape:
+        raise ValueError("times_s and normalized_head must have the same shape")
+    mask = np.isfinite(times) & np.isfinite(head) & (times > 0.0) & (head > 0.03) & (head < 0.90)
+    if np.sum(mask) < max(3, min_points):
+        mask = np.isfinite(times) & np.isfinite(head) & (times > 0.0) & (head > 1.0e-4) & (head < 0.98)
+    if np.sum(mask) < max(3, min_points):
+        mask = np.isfinite(times) & np.isfinite(head) & (times > 0.0) & (head > 1.0e-8)
+    if np.sum(mask) < max(3, min_points):
+        raise ValueError("Bouwer-Rice interpretation requires enough usable recovery points")
+
+    fit_times_all = times[mask]
+    fit_log_head_all = np.log(head[mask])
+    order = np.argsort(fit_times_all)
+    fit_times_all = fit_times_all[order]
+    fit_log_head_all = fit_log_head_all[order]
+    min_points = max(3, int(min_points))
+    candidate = _best_straight_line_window(
+        fit_times_all,
+        fit_log_head_all,
+        min_points=min_points,
+        slope_sign=-1.0,
+        require_positive_fitted=False,
+    )
+    fit_times = fit_times_all[candidate.start : candidate.stop]
+    fit_log_head = fit_log_head_all[candidate.start : candidate.stop]
+    slope, intercept = np.polyfit(fit_times, fit_log_head, 1)
+    if slope >= 0.0:
+        raise ValueError("Bouwer-Rice recovery slope must be negative")
+
+    decay_rate = -float(slope)
+    k_estimate = (
+        casing_radius_m**2
+        * np.log(effective_radius_m / well_radius_m)
+        * decay_rate
+        / (2.0 * screen_length_m)
+    )
+    transmissivity = k_estimate * aquifer_thickness_m
+    fitted = intercept + slope * fit_times
+    rmse = float(np.sqrt(np.mean((fitted - fit_log_head) ** 2)))
+    return InterpretationFit(
+        transmissivity_m2_s=float(transmissivity),
+        rmse_log_response=rmse,
+        fit_time_min_s=float(fit_times[0]),
+        fit_time_max_s=float(fit_times[-1]),
+        fit_point_count=int(len(fit_times)),
+        intercept=float(intercept),
+        slope=float(slope),
+        r_squared=float(candidate.r_squared),
+        storativity=None,
+        method="Bouwer-Rice slug",
+    )
+
+
 class _Window:
     def __init__(self, start: int, stop: int, r_squared: float, rmse: float):
         self.start = start

@@ -13,10 +13,7 @@ from trustk.assimilation.spatial import (
 )
 
 REQUIRED_PROCESSED_FILES = [
-    Path("data/processed/conditional_prior_predictions.csv"),
-    Path("data/processed/formal_population_1728_engineering_residuals.csv"),
-    Path("data/processed/formal_dimensionless_case_registry_2000.csv"),
-    Path("data/processed/formal_population_1728_engineering_qc.csv"),
+    Path("data/processed/formal_joint_storage_conditional_prior_dataset.csv"),
 ]
 pytestmark = pytest.mark.skipif(
     not all(path.exists() for path in REQUIRED_PROCESSED_FILES),
@@ -117,10 +114,7 @@ def test_spatial_assimilation_script_writes_metrics_and_figure(tmp_path):
     report_path = tmp_path / "spatial_report.json"
 
     report = run_spatial_assimilation(
-        conditional_predictions_path="data/processed/conditional_prior_predictions.csv",
-        residuals_path="data/processed/formal_population_1728_engineering_residuals.csv",
-        registry_path="data/processed/formal_dimensionless_case_registry_2000.csv",
-        qc_path="data/processed/formal_population_1728_engineering_qc.csv",
+        prior_dataset_path="data/processed/formal_joint_storage_conditional_prior_dataset.csv",
         metrics_path=metrics_path,
         fields_path=fields_path,
         observations_path=observations_path,

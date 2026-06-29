@@ -53,6 +53,37 @@ def test_constant_rate_solver_is_close_to_theis_before_outer_boundary_effects():
     assert relative_error < 0.18
 
 
+def test_constant_rate_solver_accepts_spatial_storativity_array():
+    mesh = make_log_polar_mesh(r_w=0.05, r_max=120.0, n_r=28, n_theta=12)
+    transmissivity = np.full(mesh.shape, 1.8e-3)
+    times = np.geomspace(10.0, 1200.0, 8)
+    scalar = simulate_constant_rate_pumping(
+        mesh,
+        transmissivity=transmissivity,
+        storativity=2e-4,
+        pumping_rate=8e-4,
+        times=times,
+    )
+    array = simulate_constant_rate_pumping(
+        mesh,
+        transmissivity=transmissivity,
+        storativity=np.full(mesh.shape, 2e-4),
+        pumping_rate=8e-4,
+        times=times,
+    )
+    heterogeneous = simulate_constant_rate_pumping(
+        mesh,
+        transmissivity=transmissivity,
+        storativity=2e-4 * (1.0 + 0.35 * mesh.r_centers[:, None] / mesh.r_centers[-1]),
+        pumping_rate=8e-4,
+        times=times,
+    )
+
+    assert np.allclose(array.drawdown, scalar.drawdown)
+    assert np.isfinite(heterogeneous.drawdown).all()
+    assert np.max(np.abs(heterogeneous.mass_balance_error)) < 2.0
+
+
 def test_solver_rejects_nonmonotonic_times_and_bad_transmissivity_shape():
     mesh = make_log_polar_mesh(r_w=0.1, r_max=100.0, n_r=10, n_theta=8)
 
