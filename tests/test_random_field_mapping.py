@@ -157,6 +157,8 @@ def test_random_field_verification_script_writes_report_and_figure(tmp_path):
 
     assert report["checks"]["theta_varying_heterogeneity"]["pass"]
     assert loaded["checks"]["cartesian_moments"]["pass"]
+    assert loaded["checks"]["specific_storage_moments"]["pass"]
+    assert loaded["checks"]["specific_storage_clipping"]["pass"]
     assert figure_prefix.with_suffix(".pdf").exists()
     assert figure_prefix.with_suffix(".svg").exists()
     assert figure_prefix.with_suffix(".png").exists()

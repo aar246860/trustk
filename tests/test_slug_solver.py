@@ -55,6 +55,40 @@ def test_slug_solver_matches_quasi_steady_exponential_limit():
     assert relative_error < 0.08
 
 
+def test_slug_solver_accepts_spatial_storativity_array():
+    mesh = make_log_polar_mesh(r_w=0.05, r_max=100.0, n_r=28, n_theta=12)
+    transmissivity = np.full(mesh.shape, 2.2e-3)
+    times = np.geomspace(1.0, 2000.0, 20)
+    scalar = simulate_slug_recovery(
+        mesh,
+        transmissivity=transmissivity,
+        storativity=1e-4,
+        well_storage=0.01,
+        initial_well_head=1.0,
+        times=times,
+    )
+    array = simulate_slug_recovery(
+        mesh,
+        transmissivity=transmissivity,
+        storativity=np.full(mesh.shape, 1e-4),
+        well_storage=0.01,
+        initial_well_head=1.0,
+        times=times,
+    )
+    heterogeneous = simulate_slug_recovery(
+        mesh,
+        transmissivity=transmissivity,
+        storativity=1e-4 * (1.0 + 0.25 * np.sin(mesh.theta_centers)[None, :]),
+        well_storage=0.01,
+        initial_well_head=1.0,
+        times=times,
+    )
+
+    assert np.allclose(array.well_head, scalar.well_head)
+    assert np.isfinite(heterogeneous.well_head).all()
+    assert heterogeneous.well_head[-1] < heterogeneous.well_head[0]
+
+
 def test_slug_solver_rejects_invalid_inputs():
     mesh = make_log_polar_mesh(r_w=0.05, r_max=100.0, n_r=20, n_theta=8)
     try:

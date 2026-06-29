@@ -10,8 +10,8 @@ def test_correct_conductivity_uses_residual_definition():
     out = correct_conductivity("pumping", 1.0e-5)
 
     assert out.method == "pumping"
-    assert out.k_soft_m_s == pytest.approx(1.0e-5 * math.exp(-0.17))
-    assert out.bias_factor == pytest.approx(math.exp(0.17))
+    assert out.k_soft_m_s == pytest.approx(1.0e-5 * math.exp(-0.26345401414389874))
+    assert out.bias_factor == pytest.approx(math.exp(0.26345401414389874))
     assert out.k_soft_lower_m_s < out.k_soft_m_s < out.k_soft_upper_m_s
 
 
@@ -25,7 +25,7 @@ def test_correct_table_accepts_common_aliases():
 
     out = correct_table(table)
 
-    assert list(out["trustk_method"]) == ["pumping", "slug"]
+    assert list(out["trustk_method"]) == ["pumping", "slug_bouwer_rice"]
     assert "trustk_k_soft_lower_m_s" in out.columns
     assert "trustk_k_soft_upper_m_s" in out.columns
     assert out["trustk_k_soft_m_s"].gt(0.0).all()

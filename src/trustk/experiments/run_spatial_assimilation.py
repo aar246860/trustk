@@ -18,6 +18,7 @@ from trustk.assimilation.spatial import (
     evaluate_spatial_posterior,
     squared_exponential_covariance,
 )
+from trustk.experiments.run_joint_storage_reanalysis import JOINT_FEATURE_COLUMNS
 from trustk.plotting.style import export_figure, journal_width, set_trustk_style
 from trustk.priors.conditional import (
     build_prior_dataset,
@@ -28,6 +29,7 @@ from trustk.random_fields.gaussian_field import generate_gaussian_logk_field
 
 
 def run_spatial_assimilation(
+    prior_dataset_path: str | Path = "data/processed/formal_joint_storage_conditional_prior_dataset.csv",
     conditional_predictions_path: str | Path = "data/processed/conditional_prior_predictions.csv",
     residuals_path: str | Path = "data/processed/formal_population_1728_engineering_residuals.csv",
     registry_path: str | Path = "data/processed/formal_dimensionless_case_registry_2000.csv",
@@ -36,7 +38,7 @@ def run_spatial_assimilation(
     fields_path: str | Path = "data/processed/spatial_assimilation_fields.csv",
     observations_path: str | Path = "data/processed/spatial_assimilation_observations.csv",
     report_path: str | Path = "outputs/reports/spatial_assimilation.json",
-    figure_prefix: str | Path = "outputs/figures/fig08_spatial_assimilation",
+    figure_prefix: str | Path = "outputs/figures/fig07_spatial_assimilation_2x2",
     *,
     grid_n: int = 29,
     n_observations: int = 30,
@@ -44,11 +46,13 @@ def run_spatial_assimilation(
 ) -> dict:
     """Generate a controlled spatial field and compare assimilation approaches."""
 
-    residuals = pd.read_csv(residuals_path)
-    registry = pd.read_csv(registry_path)
-    qc = pd.read_csv(qc_path)
-    prior_data = build_prior_dataset(residuals, registry, qc)
-    model = fit_conditional_prior(prior_data)
+    prior_data, feature_columns = _load_spatial_prior_dataset(
+        prior_dataset_path=prior_dataset_path,
+        residuals_path=residuals_path,
+        registry_path=registry_path,
+        qc_path=qc_path,
+    )
+    model = fit_conditional_prior(prior_data, feature_columns=feature_columns, ridge_alpha=2.0)
     observations = _make_spatial_observations(
         prior_data=prior_data,
         model=model,
@@ -142,7 +146,8 @@ def _make_spatial_observations(
     truth = field.logk.ravel()
 
     half = n_observations // 2
-    methods = np.array(["slug"] * half + ["pumping"] * (n_observations - half))
+    slug_method = "slug_bouwer_rice" if "slug_bouwer_rice" in set(prior_data["method"]) else "slug"
+    methods = np.array([slug_method] * half + ["pumping"] * (n_observations - half))
     rng.shuffle(methods)
     sample_rows = []
     for method in methods:
@@ -151,7 +156,7 @@ def _make_spatial_observations(
     sampled = pd.DataFrame(sample_rows).reset_index(drop=True)
     sampled["x"] = rng.uniform(-0.72 * extent, 0.72 * extent, len(sampled))
     sampled["y"] = rng.uniform(-0.72 * extent, 0.72 * extent, len(sampled))
-    sampled["support_radius"] = np.where(sampled["method"].eq("slug"), 12.0, 28.0)
+    sampled["support_radius"] = np.where(sampled["method"].astype(str).str.startswith("slug"), 12.0, 28.0)
     h = build_support_operator(coords, sampled)
     true_support = h @ truth
     conditional_pred = predict_conditional_prior(model, sampled)
@@ -174,6 +179,22 @@ def _method_constants(prior_data: pd.DataFrame) -> dict[str, tuple[float, float]
         values = group["log_residual"].to_numpy(dtype=float)
         constants[method] = (float(np.mean(values)), max(float(np.std(values, ddof=1)), 0.05))
     return constants
+
+
+def _load_spatial_prior_dataset(
+    *,
+    prior_dataset_path: str | Path,
+    residuals_path: str | Path,
+    registry_path: str | Path,
+    qc_path: str | Path,
+) -> tuple[pd.DataFrame, tuple[str, ...] | None]:
+    path = Path(prior_dataset_path)
+    if path.exists():
+        return pd.read_csv(path), JOINT_FEATURE_COLUMNS
+    residuals = pd.read_csv(residuals_path)
+    registry = pd.read_csv(registry_path)
+    qc = pd.read_csv(qc_path)
+    return build_prior_dataset(residuals, registry, qc), None
 
 
 def _field_table(coords: np.ndarray, truth: np.ndarray, posteriors: list) -> pd.DataFrame:
@@ -215,20 +236,20 @@ def _plot_spatial_assimilation(
     grid_n: int,
 ) -> None:
     set_trustk_style()
-    fig, axes = plt.subplots(2, 3, figsize=(journal_width(170), 5.35))
+    fig, axes = plt.subplots(2, 2, figsize=(journal_width(170), 5.25))
     truth = fields["truth_logk"].to_numpy(dtype=float).reshape(grid_n, grid_n)
     x = np.sort(fields["x"].unique())
     y = np.sort(fields["y"].unique())
     error_columns = [
         ("hard_interpretation_error", "Hard error", axes[0, 1]),
-        ("method_constant_soft_data_error", "Method-constant error", axes[0, 2]),
-        ("trust_k_conditional_error", "TRUST-K error", axes[1, 0]),
+        ("method_constant_soft_data_error", "Method-constant error", axes[1, 0]),
+        ("trust_k_conditional_error", "TRUST-K error", axes[1, 1]),
     ]
 
     ax = axes[0, 0]
     mesh = ax.pcolormesh(x, y, truth, shading="auto", cmap=cmc.batlow)
     pumping_obs = observations[observations["method"].eq("pumping")]
-    slug_obs = observations[observations["method"].eq("slug")]
+    slug_obs = observations[observations["method"].astype(str).str.startswith("slug")]
     ax.scatter(
         pumping_obs["x"],
         pumping_obs["y"],
@@ -263,37 +284,16 @@ def _plot_spatial_assimilation(
         ax.text(-0.12, 1.08, label, transform=ax.transAxes, ha="left", va="top", fontsize=9, fontweight="bold", bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.85, "pad": 1.5}, clip_on=False)
         fig.colorbar(mesh, ax=ax, fraction=0.040, pad=0.025)
 
-    ax = axes[1, 1]
-    order = ["Hard interpretation", "Method-constant soft data", "TRUST-K conditional"]
-    labels = ["Hard", "Method c", "TRUST-K"]
-    colors = [cmc.batlow(0.25), cmc.batlow(0.55), cmc.batlow(0.82)]
-    metric_ordered = metrics.set_index("approach").loc[order]
-    ax.bar(np.arange(len(order)), metric_ordered["rmse_logk"], color=colors, edgecolor="none", linewidth=0.0)
-    ax.set_xticks(np.arange(len(order)))
-    ax.set_xticklabels(labels, rotation=25, ha="right")
-    ax.set_ylabel(r"Grid RMSE in $\ln K$")
-    ax.text(-0.12, 1.08, "(e)", transform=ax.transAxes, ha="left", va="top", fontsize=9, fontweight="bold", bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.85, "pad": 1.5}, clip_on=False)
-
-    ax = axes[1, 2]
-    ax.bar(np.arange(len(order)), metric_ordered["coverage_95"], color=colors, edgecolor="none", linewidth=0.0)
-    ax.axhline(0.95, color="0.25", lw=0.8, ls="--")
-    ax.set_ylim(0.0, 1.05)
-    ax.set_xticks(np.arange(len(order)))
-    ax.set_xticklabels(labels, rotation=25, ha="right")
-    ax.set_ylabel("Grid 95% coverage")
-    ax.text(-0.12, 1.08, "(f)", transform=ax.transAxes, ha="left", va="top", fontsize=9, fontweight="bold", bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.85, "pad": 1.5}, clip_on=False)
-
     for ax in axes.ravel():
-        ax.set_aspect("equal" if ax in axes[:, :3].ravel()[:4] else "auto")
+        ax.set_aspect("equal")
         ax.spines[["top", "right"]].set_visible(False)
-        if ax not in [axes[1, 1], axes[1, 2]]:
-            ax.set_xlabel("x (m)")
-            if ax in [axes[0, 0], axes[1, 0]]:
-                ax.set_ylabel("y (m)")
-            else:
-                ax.set_ylabel("")
+        ax.set_xlabel("x (m)")
+        if ax in [axes[0, 0], axes[1, 0]]:
+            ax.set_ylabel("y (m)")
+        else:
+            ax.set_ylabel("")
     fig.legend(handles=observation_handles, loc="upper left", bbox_to_anchor=(0.075, 0.985), frameon=False, ncol=2, handletextpad=0.35, columnspacing=1.0)
-    fig.subplots_adjust(left=0.075, right=0.985, bottom=0.13, top=0.91, wspace=0.58, hspace=0.28)
+    fig.subplots_adjust(left=0.075, right=0.985, bottom=0.11, top=0.91, wspace=0.42, hspace=0.34)
     export_figure(fig, figure_prefix)
     plt.close(fig)
 
@@ -316,6 +316,7 @@ def _write_json(path: str | Path, data: dict) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--prior-dataset", default="data/processed/formal_joint_storage_conditional_prior_dataset.csv")
     parser.add_argument("--conditional-predictions", default="data/processed/conditional_prior_predictions.csv")
     parser.add_argument("--residuals", default="data/processed/formal_population_1728_engineering_residuals.csv")
     parser.add_argument("--registry", default="data/processed/formal_dimensionless_case_registry_2000.csv")
@@ -324,12 +325,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--fields", default="data/processed/spatial_assimilation_fields.csv")
     parser.add_argument("--observations", default="data/processed/spatial_assimilation_observations.csv")
     parser.add_argument("--report", default="outputs/reports/spatial_assimilation.json")
-    parser.add_argument("--figure-prefix", default="outputs/figures/fig08_spatial_assimilation")
+    parser.add_argument("--figure-prefix", default="outputs/figures/fig07_spatial_assimilation_2x2")
     parser.add_argument("--grid-n", type=int, default=29)
     parser.add_argument("--n-observations", type=int, default=30)
     parser.add_argument("--seed", type=int, default=20260518)
     args = parser.parse_args(argv)
     report = run_spatial_assimilation(
+        prior_dataset_path=args.prior_dataset,
         conditional_predictions_path=args.conditional_predictions,
         residuals_path=args.residuals,
         registry_path=args.registry,

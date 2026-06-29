@@ -59,6 +59,44 @@ def support_targets_from_mapped_logk(
     }
 
 
+def support_targets_from_mapped_logk_logss(
+    *,
+    mapped_logk: np.ndarray,
+    mapped_logss: np.ndarray,
+    mesh: PolarMesh,
+    pumping_radius_m: float,
+    slug_radius_m: float,
+) -> dict[str, float | int]:
+    y = np.asarray(mapped_logk, dtype=float)
+    s = np.asarray(mapped_logss, dtype=float)
+    if y.shape != mesh.shape or s.shape != mesh.shape:
+        raise ValueError(f"mapped fields must have shape {mesh.shape}")
+    if np.any(~np.isfinite(s)):
+        raise ValueError("mapped_logss must be finite")
+
+    radius = np.sqrt(mesh.x_centers**2 + mesh.y_centers**2)
+    pumping_mask = _radius_mask(radius, pumping_radius_m)
+    slug_mask = _radius_mask(radius, slug_radius_m)
+    out = support_targets_from_mapped_logk(
+        mapped_logk=y,
+        mesh=mesh,
+        pumping_radius_m=pumping_radius_m,
+        slug_radius_m=slug_radius_m,
+    )
+    logdiff = y - s
+    out.update(
+        {
+            "Ss_star_pumping_m_inv": area_weighted_geometric_mean_k(s, mesh.area, pumping_mask),
+            "Ss_star_slug_m_inv": area_weighted_geometric_mean_k(s, mesh.area, slug_mask),
+            "diffusivity_star_pumping_m2_s": area_weighted_geometric_mean_k(logdiff, mesh.area, pumping_mask),
+            "diffusivity_star_slug_m2_s": area_weighted_geometric_mean_k(logdiff, mesh.area, slug_mask),
+            "lnK_lnSs_corr_pumping": _weighted_corr(y, s, mesh.area, pumping_mask),
+            "lnK_lnSs_corr_slug": _weighted_corr(y, s, mesh.area, slug_mask),
+        }
+    )
+    return out
+
+
 def _radius_mask(radius: np.ndarray, support_radius: float) -> np.ndarray:
     mask = radius <= support_radius
     if np.any(mask):
@@ -67,3 +105,15 @@ def _radius_mask(radius: np.ndarray, support_radius: float) -> np.ndarray:
     mask = np.zeros_like(radius, dtype=bool)
     mask[closest] = True
     return mask
+
+
+def _weighted_corr(a: np.ndarray, b: np.ndarray, area: np.ndarray, mask: np.ndarray) -> float:
+    weights = np.asarray(area, dtype=float)[mask]
+    x = np.asarray(a, dtype=float)[mask]
+    y = np.asarray(b, dtype=float)[mask]
+    x_centered = x - float(np.sum(weights * x) / np.sum(weights))
+    y_centered = y - float(np.sum(weights * y) / np.sum(weights))
+    denom = np.sqrt(float(np.sum(weights * x_centered**2) * np.sum(weights * y_centered**2)))
+    if denom <= 0.0:
+        return float("nan")
+    return float(np.sum(weights * x_centered * y_centered) / denom)

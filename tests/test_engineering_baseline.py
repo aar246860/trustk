@@ -8,6 +8,7 @@ from trustk.diagnostics.fit_quality import summarize_fit_quality
 from trustk.dimensionless.settings import DimensionalBaseConfig, convert_case_registry_to_solver_settings
 from trustk.experiments.run_synthetic_population import run_synthetic_population
 from trustk.interpretation.engineering import (
+    estimate_hydraulic_conductivity_bouwer_rice,
     estimate_transmissivity_cooper_jacob,
     estimate_transmissivity_slug_semilog,
 )
@@ -160,6 +161,36 @@ def test_slug_semilog_window_ignores_early_and_late_nonideal_points():
     assert fit.slope is not None and fit.slope < 0.0
 
 
+def test_bouwer_rice_interpreter_recovers_hydraulic_conductivity():
+    true_k = 2.5e-5
+    casing_radius = 0.04
+    well_radius = 0.1
+    effective_radius = 40.0
+    screen_length = 12.0
+    aquifer_thickness = 20.0
+    times = np.geomspace(0.5, 500.0, 90)
+    decay_rate = 2.0 * screen_length * true_k / (casing_radius**2 * np.log(effective_radius / well_radius))
+    normalized_head = np.exp(-decay_rate * times)
+    normalized_head[:5] = normalized_head[:5] ** 0.9
+    normalized_head[-6:] = np.maximum(normalized_head[-6:], 0.04)
+
+    fit = estimate_hydraulic_conductivity_bouwer_rice(
+        times_s=times,
+        normalized_head=normalized_head,
+        casing_radius_m=casing_radius,
+        well_radius_m=well_radius,
+        screen_length_m=screen_length,
+        aquifer_thickness_m=aquifer_thickness,
+        effective_radius_m=effective_radius,
+        min_points=10,
+    )
+
+    assert np.isclose(fit.transmissivity_m2_s / aquifer_thickness, true_k, rtol=0.15)
+    assert fit.fit_time_min_s > times[0]
+    assert fit.r_squared is not None and fit.r_squared > 0.995
+    assert fit.slope is not None and fit.slope < 0.0
+
+
 def test_engineering_baseline_script_writes_engineering_residuals_qc_and_prior(tmp_path):
     from trustk.experiments.run_engineering_baseline import run_engineering_baseline
 
@@ -214,3 +245,58 @@ def test_engineering_baseline_script_writes_engineering_residuals_qc_and_prior(t
     assert np.isfinite(residuals[["K_hat_pumping_m_s", "K_hat_slug_m_s"]].to_numpy(dtype=float)).all()
     assert qc_figure_prefix.with_suffix(".pdf").exists()
     assert prior_figure_prefix.with_suffix(".svg").exists()
+
+
+def test_bouwer_rice_sensitivity_script_writes_prior_comparison(tmp_path):
+    from trustk.experiments.run_bouwer_rice_sensitivity import run_bouwer_rice_sensitivity
+    from trustk.experiments.run_engineering_baseline import run_engineering_baseline
+
+    settings_path = tmp_path / "settings.csv"
+    curves_path = tmp_path / "curves.csv"
+    base_residuals_path = tmp_path / "base_residuals.csv"
+    _small_ready_settings().to_csv(settings_path, index=False)
+    run_synthetic_population(
+        settings_path=settings_path,
+        curves_path=curves_path,
+        residuals_path=base_residuals_path,
+        report_path=tmp_path / "base_report.json",
+        figure_prefix=tmp_path / "fig_base",
+        max_cases=2,
+        cartesian_n_cap=129,
+        mesh_n_r=18,
+        mesh_n_theta=8,
+    )
+    engineering_prior_path = tmp_path / "engineering_prior.csv"
+    run_engineering_baseline(
+        curves_path=curves_path,
+        support_residuals_path=base_residuals_path,
+        settings_path=settings_path,
+        residuals_path=tmp_path / "engineering_residuals.csv",
+        fitted_curves_path=tmp_path / "engineering_fitted.csv",
+        qc_path=tmp_path / "engineering_qc.csv",
+        prior_path=engineering_prior_path,
+        report_path=tmp_path / "engineering_report.json",
+        qc_figure_prefix=tmp_path / "fig_qc",
+        prior_figure_prefix=tmp_path / "fig_prior",
+        min_prior_cases=1,
+    )
+
+    report = run_bouwer_rice_sensitivity(
+        curves_path=curves_path,
+        support_residuals_path=base_residuals_path,
+        settings_path=settings_path,
+        engineering_prior_path=engineering_prior_path,
+        residuals_path=tmp_path / "br_residuals.csv",
+        fitted_curves_path=tmp_path / "br_fitted.csv",
+        qc_path=tmp_path / "br_qc.csv",
+        prior_path=tmp_path / "br_prior.csv",
+        comparison_path=tmp_path / "br_comparison.csv",
+        report_path=tmp_path / "br_report.json",
+        figure_prefix=tmp_path / "fig_br",
+        min_prior_cases=1,
+    )
+    comparison = pd.read_csv(tmp_path / "br_comparison.csv")
+
+    assert report["checks"]["finite_residuals"]["pass"]
+    assert {"semi-log slug", "Bouwer-Rice slug"} == set(comparison["slug_interpretation"])
+    assert (tmp_path / "fig_br.pdf").exists()

@@ -9,6 +9,7 @@ from scipy.sparse import csr_matrix, lil_matrix
 from scipy.sparse.linalg import spsolve
 
 from trustk.mesh.polar_mesh import PolarMesh
+from trustk.physics.storage import storativity_array
 
 
 @dataclass(frozen=True)
@@ -23,25 +24,24 @@ class PumpingSimulationResult:
 def _validate_inputs(
     mesh: PolarMesh,
     transmissivity: np.ndarray,
-    storativity: float,
+    storativity: float | np.ndarray,
     pumping_rate: float,
     times: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     t = np.asarray(times, dtype=float)
     if t.ndim != 1 or len(t) == 0:
         raise ValueError("times must be a one-dimensional non-empty array")
     if np.any(t <= 0) or np.any(np.diff(t) <= 0):
         raise ValueError("times must be positive and strictly increasing")
-    if storativity <= 0:
-        raise ValueError("storativity must be positive")
     if pumping_rate <= 0:
         raise ValueError("pumping_rate must be positive")
+    storage_values = storativity_array(storativity, mesh)
     trans = np.asarray(transmissivity, dtype=float)
     if trans.shape != mesh.shape:
         raise ValueError(f"transmissivity shape must be {mesh.shape}")
     if np.any(trans <= 0):
         raise ValueError("transmissivity values must be positive")
-    return trans, t
+    return trans, storage_values, t
 
 
 def _harmonic(a: float, b: float) -> float:
@@ -102,7 +102,7 @@ def _assemble_conductance_matrix(mesh: PolarMesh, transmissivity: np.ndarray) ->
 def simulate_constant_rate_pumping(
     mesh: PolarMesh,
     transmissivity: np.ndarray,
-    storativity: float,
+    storativity: float | np.ndarray,
     pumping_rate: float,
     times: np.ndarray,
 ) -> PumpingSimulationResult:
@@ -112,9 +112,9 @@ def simulate_constant_rate_pumping(
     distributed uniformly over the inner radial boundary cells.
     """
 
-    trans, t = _validate_inputs(mesh, transmissivity, storativity, pumping_rate, times)
+    trans, storage_values, t = _validate_inputs(mesh, transmissivity, storativity, pumping_rate, times)
     conductance = _assemble_conductance_matrix(mesh, trans)
-    storage = storativity * mesh.area.ravel()
+    storage = storage_values.ravel() * mesh.area.ravel()
     source = np.zeros(mesh.n_r * mesh.n_theta, dtype=float)
     source[: mesh.n_theta] = pumping_rate / mesh.n_theta
 
