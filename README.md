@@ -16,6 +16,16 @@ The package returns soft observations of support-scale conductivity. It does
 not claim that a corrected field value is the unique true hydraulic
 conductivity.
 
+## Conceptual Overview
+
+[![Video S1 thumbnail](docs/assets/trustk_observation_model_video_s1_still.png)](https://github.com/aar246860/trustk/releases/download/video-s1-trustk-observation-model-v1/HYDROL81710_VideoS1_TRUSTK_observation_model.mp4)
+
+**Video S1. Conceptual animation of the TRUST-K observation model.**
+The animation illustrates how support-scale hydraulic conductivity, apparent
+interpreted conductivity, transformation residuals, and method-dependent soft
+observations are linked in TRUST-K. It is a conceptual guide to the observation
+model, not a field-validation result.
+
 ## Installation
 
 Install directly from GitHub:
