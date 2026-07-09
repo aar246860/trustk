@@ -14,10 +14,11 @@ python -m pip install "git+https://github.com/aar246860/trustk.git"
 
 For local source development:
 
-```powershell
+```bash
 git clone https://github.com/aar246860/trustk.git
 cd trustk
-python -m pip install -e .
+python -m pip install -e ".[dev]"
+pytest
 ```
 
 ## Convert Existing Aquifer-Test Estimates
@@ -49,6 +50,6 @@ The returned columns include:
 
 The output is not a unique true hydraulic conductivity. It is a soft
 observation that carries the method-level transformation uncertainty learned
-from the manuscript's QC-pass synthetic population. Users working outside the
-tested design range should augment the synthetic population or retrain the
+from the manuscript's formal joint synthetic population. Users working outside
+the tested design range should augment the synthetic population or retrain the
 conditional prior before using the result for design decisions.

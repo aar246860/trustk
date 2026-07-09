@@ -1,2 +1,0 @@
-"""Publication figure helpers."""
-

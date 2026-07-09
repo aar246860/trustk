@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "trustk"
 version = "0.1.0"
-description = "TRUST-K analysis package for hydraulic-conductivity transformation uncertainty"
+description = "Public TRUST-K helpers for hydraulic-conductivity transformation uncertainty"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -32,13 +32,7 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Information Analysis",
 ]
 dependencies = [
-  "cmcrameri",
-  "numpy",
-  "scipy",
   "pandas",
-  "matplotlib",
-  "openpyxl",
-  "pyyaml",
 ]
 
 [project.urls]

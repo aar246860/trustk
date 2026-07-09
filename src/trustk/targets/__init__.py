@@ -1,2 +1,0 @@
-"""Latent support target definitions."""
-

@@ -1,5 +1,3 @@
-"""TRUST-K analysis package."""
-
 from trustk.api import (
     MANUSCRIPT_METHOD_PRIORS,
     MethodTransformationPrior,

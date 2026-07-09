@@ -1,2 +1,0 @@
-"""Soft-observation assimilation tools."""
-
