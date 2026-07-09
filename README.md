@@ -26,6 +26,20 @@ interpreted conductivity, transformation residuals, and method-dependent soft
 observations are linked in TRUST-K. It is a conceptual guide to the observation
 model, not a field-validation result.
 
+## Citation
+
+For software use, cite the release or commit used in the analysis:
+
+```text
+Lin, Y.-F. (2026). TRUST-K: transformation-uncertainty support tools for
+hydraulic-conductivity interpretation (v0.1.0). GitHub.
+https://github.com/aar246860/trustk
+```
+
+If citing the TRUST-K method, cite the manuscript after the journal DOI is
+assigned. The repository citation identifies the software version and default
+priors used in a reproducible analysis.
+
 ## Installation
 
 Install directly from GitHub:

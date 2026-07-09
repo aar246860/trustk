@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use TRUST-K software, please cite this repository and version."
+type: software
+title: "TRUST-K: transformation-uncertainty support tools for hydraulic-conductivity interpretation"
+version: 0.1.0
+date-released: 2026-07-10
+authors:
+  - family-names: Lin
+    given-names: Ying-Fan
+repository-code: "https://github.com/aar246860/trustk"
+url: "https://github.com/aar246860/trustk"
+license: MIT
+abstract: "Python helpers for converting pumping- and slug-test hydraulic-conductivity estimates into method-dependent soft observations using TRUST-K transformation priors."
+keywords:
+  - hydrogeology
+  - groundwater
+  - hydraulic conductivity
+  - aquifer test
+  - uncertainty quantification
+  - soft data

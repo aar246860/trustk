@@ -37,6 +37,9 @@ dependencies = [
 
 [project.urls]
 Repository = "https://github.com/aar246860/trustk"
+Documentation = "https://github.com/aar246860/trustk#readme"
+Issues = "https://github.com/aar246860/trustk/issues"
+Releases = "https://github.com/aar246860/trustk/releases"
 
 [project.optional-dependencies]
 dev = [
